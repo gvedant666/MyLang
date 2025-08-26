@@ -1,10 +1,8 @@
-# SimpleLang — Tiny educational compiler
+# MyLang — Tiny educational compiler
 
 **Author:** Vedant Gaikwad (source files provided)
 
-A compact single-file compiler front-to-back for a tiny toy language ("SimpleLang"). It tokenizes source code, parses it into an AST, and emits a small assembly-like text format.
-
-This README is written as a concise project report (so you can paste it directly into your repo). It follows the style of the readmes you provided and contains: overview, language grammar, architecture, parser tree diagram, build & run steps, example input & generated output, file map, design notes, limitations, and ideas for future work.
+A compact single-file compiler front-to-back for a tiny toy language ("MyLang"). It tokenizes source code, parses it into an AST, and emits a small assembly-like text format.
 
 ---
 
@@ -20,13 +18,12 @@ This README is written as a concise project report (so you can paste it directly
 * [Design & Implementation notes](#design--implementation-notes)
 * [Limitations](#limitations)
 * [Future work](#future-work)
-* [License](#license)
 
 ---
 
 ## Overview
 
-This project implements a tiny compiler for a toy language named **SimpleLang**. The compiler is small and educational — intended to show the basic stages of compilation: **tokenization**, **parsing** (producing an AST), and **code generation** (to a minimal assembly-like representation).
+This project implements a tiny compiler for a toy language named **MyLang**. The compiler is small and educational — intended to show the basic stages of compilation: **tokenization**, **parsing** (producing an AST), and **code generation** (to a minimal assembly-like representation).
 
 Key goals:
 
@@ -40,7 +37,7 @@ The implementation (headers + `Main.cpp`) is intentionally minimal and easy to e
 
 ## Language & Grammar (informal)
 
-SimpleLang currently supports two statement forms:
+MyLang currently supports two statement forms:
 
 1. **Integer declaration with initializer**
 
@@ -134,28 +131,66 @@ The AST is made of these node types (extracted from `parser.hpp`):
 - `NodeIntLit` — integer literal token
 - `NodeIdent` — identifier token
 
-### Parser tree (tree form)
+### Parser tree (Tree diagram)
 
 Given source:
 
+```c
+int x = 5;
+exit(x);
+````
+
+**AST tree diagram:**
+
+````text
+                ┌───────────┐
+                │  NodeProg │
+                └─────┬─────┘
+          ┌───────────┴───────────┐
+          │                       │
+   ┌──────┴──────┐         ┌──────┴──────┐
+   │  Stmt[0]    │         │  Stmt[1]    │
+   │ (IntDecl)   │         │   (Exit)    │
+   └──────┬──────┘         └──────┬──────┘
+          │                       │
+   ┌──────┴────────┐        ┌─────┴────────┐
+   │ NodeStmtInt   │        │ NodeStmtExit │
+   └───┬─────┬─────┘        └──────┬───────┘
+       │     │                     │
+   ┌───┘     └─────┐          ┌────┴──────┐
+   │               │          │  NodeExpr │
+┌──┴───┐       ┌───┴──────┐   └─────┬─────┘
+│Ident │       │ NodeExpr │         │
+│ "x"  │       └─────┬────┘     ┌───┴─────┐
+└──────┘             │          │ NodeTerm│
+                 ┌───┴────┐     └───┬─────┘
+                 │NodeTerm│         │
+                 └───┬────┘     ┌───┴───────┐
+                     │          │ NodeIdent │
+                 ┌───┴──────┐   │   "x"     │
+                 │NodeIntLit│   └───────────┘
+                 │ value=5  │
+                 └──────────┘
 ```text
 int x = 5;
 exit(x);
 ````
 
-**Tree form (each node shows type and core fields):**
+**AST in tree form:**
 
-```
+```text
 NodeProg
-├─ Stmt[0]: NodeStmt (type: IntDecl)
-│   ├─ NodeStmtInt
-│   │   ├─ ident: NodeIdent(name="x")
-│   │   └─ expr: NodeExpr
-│   │       └─ term: NodeTerm -> NodeIntLit(value=5)
-└─ Stmt[1]: NodeStmt (type: Exit)
-    └─ NodeStmtExit
-        └─ expr: NodeExpr
-            └─ term: NodeTerm -> NodeIdent(name="x")
+├── Stmt[0]: NodeStmt (IntDecl)
+│    └── NodeStmtInt
+│         ├── NodeIdent(name="x")
+│         └── NodeExpr
+│              └── NodeTerm
+│                   └── NodeIntLit(value=5)
+└── Stmt[1]: NodeStmt (Exit)
+     └── NodeStmtExit
+          └── NodeExpr
+               └── NodeTerm
+                    └── NodeIdent(name="x")
 ```
 
 **Explanation (tree form conventions)**
@@ -243,10 +278,10 @@ Using `g++` (C++17 or later):
 ```bash
 # from project root (where Main.cpp lives)
 # compile
-g++ -std=c++17 -O2 Main.cpp -o simplelang
+g++ -std=c++17 -O2 Main.cpp -o mylang
 
 # run (provide a path to your .sl file)
-./simplelang path/to/text.sl
+./mylang path/to/text.sl
 ```
 
 On Windows (MinGW/MSYS) you can use the provided hint in `Main.cpp`:
@@ -255,7 +290,7 @@ On Windows (MinGW/MSYS) you can use the provided hint in `Main.cpp`:
 mingw32-make clean && mingw32-make run
 ```
 
-> The program expects (per `Main.cpp`) a path like `C:/Code/C++/Compiler/SimpleLang/text.sl` in the variable `filePath`. Edit `Main.cpp` or pass the desired path as a CLI argument if you add argument parsing.
+> The program expects (per `Main.cpp`) a path like `C:/Code/C++/Compiler/MyLang/text.sl` in the variable `filePath`. Edit `Main.cpp` or pass the desired path as a CLI argument if you add argument parsing.
 
 ### Expected behaviour
 
@@ -303,13 +338,12 @@ Brief responsibilities:
 
 ## Future work / suggestions
 
-If you want to expand this project (good ideas for CV / internship projects):
 
 * Add binary expressions (`+`, `-`, `*`, `/`) and full expression parsing (shunting-yard or recursive-descent with precedence).
 * Implement a symbol table and typed variable declarations / storage layout.
 * Expand code generation to target a known assembly (x86-64/NASM/AT\&T) or emit WebAssembly or LLVM IR.
 * Improve error messages with line/column info in the tokenizer and parser.
-* Add CLI support: `simplelang <input.sl> -o out.s`.
+* Add CLI support: `mylang <input.sl> -o out.s`.
 * Add a test suite and sample `.sl` programs, plus a small Makefile / CMake configuration.
 
 ---
@@ -328,22 +362,7 @@ exit(x);
 
 ```bash
 # edit Main.cpp to point to your text.sl or modify Main.cpp to accept argv[1]
-./simplelang
+./mylang
 # check the generated .asm-like output file (see asm_generator.hpp for filename)
 ```
-
 ---
-
-## License
-
-This README does not change the project license. If you want to add one, consider using the MIT license for an educational project.
-
----
-
-If you want, I can also:
-
-* Produce a nicely-formatted `Makefile` or `CMakeLists.txt`.
-* Add example `.sl` test files and a small test runner.
-* Convert the ASCII diagrams into SVG/PNG that you can include in the repo README.
-
-Tell me which of the above you'd like next and I will add it directly to the repo README file.
