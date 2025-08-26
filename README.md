@@ -1,6 +1,10 @@
-# MyLang — Tiny educational compiler
+# SimpleLang — Tiny educational compiler
 
-A compact single-file compiler front-to-back for a tiny toy language ("MyLang"). It tokenizes source code, parses it into an AST, and emits a small assembly-like text format.
+**Author:** Vedant Gaikwad (source files provided)
+
+A compact single-file compiler front-to-back for a tiny toy language ("SimpleLang"). It tokenizes source code, parses it into an AST, and emits a small assembly-like text format.
+
+This README is written as a concise project report (so you can paste it directly into your repo). It follows the style of the readmes you provided and contains: overview, language grammar, architecture, parser tree diagram, build & run steps, example input & generated output, file map, design notes, limitations, and ideas for future work.
 
 ---
 
@@ -22,7 +26,7 @@ A compact single-file compiler front-to-back for a tiny toy language ("MyLang").
 
 ## Overview
 
-This project implements a tiny compiler for a toy language named **MyLang**. The compiler is small and educational — intended to show the basic stages of compilation: **tokenization**, **parsing** (producing an AST), and **code generation** (to a minimal assembly-like representation).
+This project implements a tiny compiler for a toy language named **SimpleLang**. The compiler is small and educational — intended to show the basic stages of compilation: **tokenization**, **parsing** (producing an AST), and **code generation** (to a minimal assembly-like representation).
 
 Key goals:
 
@@ -36,7 +40,7 @@ The implementation (headers + `Main.cpp`) is intentionally minimal and easy to e
 
 ## Language & Grammar (informal)
 
-MyLang currently supports two statement forms:
+SimpleLang currently supports two statement forms:
 
 1. **Integer declaration with initializer**
 
@@ -88,15 +92,32 @@ Generator (codegen)          — walks the AST and emits assembly-like text
 Assembly-like output (text file printed to disk)
 ```
 
-Mermaid sequence (optional, GitHub might not render without enabling mermaid):
+Compiler pipeline (ASCII flow)
 
-```mermaid
-flowchart LR
-  A[Source (text.sl)] --> B(Tokenizer)
-  B --> C(Parser)
-  C --> D(Generator)
-  D --> E[Assembly output (.asm-like text)]
 ```
+Source (text.sl)
+  |
+  v
+Tokenizer (lexical analysis)  -- produces vector<Token>
+  |
+  v
+Parser (recursive descent)    -- produces AST (NodeProg)
+  |
+  v
+Generator (codegen)          -- emits assembly-like text
+  |
+  v
+Assembly-like output (text file)
+```
+
+mermaid
+flowchart LR
+A\[Source (text.sl)] --> B(Tokenizer)
+B --> C(Parser)
+C --> D(Generator)
+D --> E\[Assembly output (.asm-like text)]
+
+````
 
 ---
 
@@ -104,40 +125,70 @@ flowchart LR
 
 The AST is made of these node types (extracted from `parser.hpp`):
 
-* `NodeProg` — vector of statements
-* `NodeStmt` — variant: can be `NodeStmtInt` (int declaration) or `NodeStmtExit` (exit statement)
-* `NodeStmtInt` — holds an identifier (`NodeIdent`) and an expression (`NodeExpr`)
-* `NodeStmtExit` — holds an expression (`NodeExpr`)
-* `NodeExpr` — holds a `NodeTerm`
-* `NodeTerm` — variant: `NodeIntLit` or `NodeIdent`
-* `NodeIntLit` — integer literal token
-* `NodeIdent` — identifier token
+- `NodeProg` — vector of statements
+- `NodeStmt` — variant: can be `NodeStmtInt` (int declaration) or `NodeStmtExit` (exit statement)
+- `NodeStmtInt` — holds an identifier (`NodeIdent`) and an expression (`NodeExpr`)
+- `NodeStmtExit` — holds an expression (`NodeExpr`)
+- `NodeExpr` — holds a `NodeTerm`
+- `NodeTerm` — variant: `NodeIntLit` or `NodeIdent`
+- `NodeIntLit` — integer literal token
+- `NodeIdent` — identifier token
 
-### Example parse tree (ASCII)
+### Parser tree (tree form)
 
 Given source:
 
 ```text
 int x = 5;
 exit(x);
+````
+
+**Tree form (each node shows type and core fields):**
+
+```
+NodeProg
+├─ Stmt[0]: NodeStmt (type: IntDecl)
+│   ├─ NodeStmtInt
+│   │   ├─ ident: NodeIdent(name="x")
+│   │   └─ expr: NodeExpr
+│   │       └─ term: NodeTerm -> NodeIntLit(value=5)
+└─ Stmt[1]: NodeStmt (type: Exit)
+    └─ NodeStmtExit
+        └─ expr: NodeExpr
+            └─ term: NodeTerm -> NodeIdent(name="x")
+```
+
+**Explanation (tree form conventions)**
+
+* `NodeProg` is the root and contains an ordered list of statements (`vector` of `NodeStmt`).
+* Each statement node is a `NodeStmt` that holds a `std::variant` identifying the concrete statement type (`NodeStmtInt` or `NodeStmtExit`).
+* `NodeStmtInt` contains an identifier (`NodeIdent`) and an expression (`NodeExpr`).
+* `NodeExpr` contains a `NodeTerm`. `NodeTerm` is a variant that points to either a `NodeIntLit` (literal) or `NodeIdent` (variable reference).
+
+This ASCII "tree form" is intentionally plain text so it renders correctly on GitHub without Mermaid. If you want a rendered image (PNG/SVG) of the same tree to embed in the README, tell me and I will add it to the repo.text
+int x = 5;
+exit(x);
+
 ```
 
 The parser produces an AST like:
 
 ```
+
 NodeProg
-├─ NodeStmt (stmt_type = Ident)
+├─ NodeStmt (stmt\_type = Ident)
 │  └─ NodeStmtInt
 │     ├─ NodeIdent (ident: "x")
 │     └─ NodeExpr
 │        └─ NodeTerm
 │           └─ NodeIntLit (value: 5)
-└─ NodeStmt (stmt_type = Exit)
-   └─ NodeStmtExit
-      └─ NodeExpr
-         └─ NodeTerm
-            └─ NodeIdent (ident: "x")
-```
+└─ NodeStmt (stmt\_type = Exit)
+└─ NodeStmtExit
+└─ NodeExpr
+└─ NodeTerm
+└─ NodeIdent (ident: "x")
+
+````
 
 This diagram matches the `struct` definitions in `parser.hpp` (e.g. `NodeStmt` contains a `variant` of possible statement node types, `NodeProg` stores a `vector` of `unique_ptr<NodeStmt>`).
 
@@ -151,7 +202,7 @@ This diagram matches the `struct` definitions in `parser.hpp` (e.g. `NodeStmt` c
 int a = 42;
 int b = 3;
 exit(a);
-```
+````
 
 **Tokenization** (conceptual):
 
@@ -192,10 +243,10 @@ Using `g++` (C++17 or later):
 ```bash
 # from project root (where Main.cpp lives)
 # compile
-g++ -std=c++17 -O2 Main.cpp -o mylang
+g++ -std=c++17 -O2 Main.cpp -o simplelang
 
 # run (provide a path to your .sl file)
-./mylang path/to/text.sl
+./simplelang path/to/text.sl
 ```
 
 On Windows (MinGW/MSYS) you can use the provided hint in `Main.cpp`:
@@ -250,13 +301,15 @@ Brief responsibilities:
 
 ---
 
-## Future work
+## Future work / suggestions
+
+If you want to expand this project (good ideas for CV / internship projects):
 
 * Add binary expressions (`+`, `-`, `*`, `/`) and full expression parsing (shunting-yard or recursive-descent with precedence).
 * Implement a symbol table and typed variable declarations / storage layout.
 * Expand code generation to target a known assembly (x86-64/NASM/AT\&T) or emit WebAssembly or LLVM IR.
 * Improve error messages with line/column info in the tokenizer and parser.
-* Add CLI support: `mylang <input.sl> -o out.s`.
+* Add CLI support: `simplelang <input.sl> -o out.s`.
 * Add a test suite and sample `.sl` programs, plus a small Makefile / CMake configuration.
 
 ---
@@ -275,7 +328,7 @@ exit(x);
 
 ```bash
 # edit Main.cpp to point to your text.sl or modify Main.cpp to accept argv[1]
-./mylang
+./simplelang
 # check the generated .asm-like output file (see asm_generator.hpp for filename)
 ```
 
